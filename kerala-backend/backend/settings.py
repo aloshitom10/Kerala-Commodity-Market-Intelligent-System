@@ -12,6 +12,9 @@ DEBUG = config("DEBUG", default=True, cast=bool)
 
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="*").split(",")
 
+# Strip whitespace from each host entry
+ALLOWED_HOSTS = [h.strip() for h in ALLOWED_HOSTS]
+
 INSTALLED_APPS = [
     "django.contrib.admin",
     "django.contrib.auth",
@@ -118,6 +121,13 @@ REST_FRAMEWORK = {
 
 # ─── CORS ────────────────────────────────────────────────────────────────────
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
+
+# ─── CSRF trusted origins (required for Railway/Vercel) ──────────────────────
+CSRF_TRUSTED_ORIGINS = config(
+    "CSRF_TRUSTED_ORIGINS",
+    default="https://*.up.railway.app,https://*.vercel.app"
+).split(",")
 
 # ─── APScheduler ─────────────────────────────────────────────────────────────
 APSCHEDULER_DATETIME_FORMAT = "N j, Y, f:s a"
