@@ -1,0 +1,20 @@
+﻿# Python / Django
+kerala-backend/__pycache__/
+kerala-backend/**/__pycache__/
+kerala-backend/*.pyc
+kerala-backend/.env
+kerala-backend/staticfiles/
+kerala-backend/db.sqlite3
+
+# Node / Next.js
+kerala-price-platform/node_modules/
+kerala-price-platform/.next/
+kerala-price-platform/.env.local
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Probe / scratch scripts
+probe_*.py
+test_api.py
