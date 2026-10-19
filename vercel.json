@@ -1,0 +1,6 @@
+﻿{
+  "buildCommand": "cd kerala-price-platform && npm run build",
+  "outputDirectory": "kerala-price-platform/.next",
+  "installCommand": "cd kerala-price-platform && npm install",
+  "framework": "nextjs"
+}
