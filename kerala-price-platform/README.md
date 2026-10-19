@@ -3,6 +3,9 @@
 > Real-time wholesale commodity price monitoring, trends, AI forecasts and district-wise insights across all 14 Kerala districts.  
 > Data sourced live from **Kerala DES — Market Intelligence** (Ecostat).
 
+🌐 **Live App:** [kerampulse.vercel.app](https://kerampulse.vercel.app)  
+🔗 **API:** [kerala-commodity-market-intelligent-system-production.up.railway.app/api](https://kerala-commodity-market-intelligent-system-production.up.railway.app/api)
+
 ---
 
 ## Table of Contents
@@ -15,7 +18,7 @@
 - [Environment Variables](#environment-variables)
 - [API Reference](#api-reference)
 - [Deployment](#deployment)
-- [Screenshots](#screenshots)
+- [Data Source](#data-source)
 
 ---
 
@@ -45,9 +48,11 @@ KeramPulse tracks daily wholesale prices for 13 commodities (rubber, coconut, ar
 |---|---|
 | Frontend | Next.js 16, React 19, TypeScript, Tailwind CSS v4, Recharts |
 | Backend | Django 4.2+, Django REST Framework, APScheduler |
-| Database | SQLite (dev) / PostgreSQL (production) |
+| Database | PostgreSQL (Railway) / SQLite (local dev) |
 | ML | scikit-learn (GradientBoostingRegressor), pandas, numpy |
 | Data Source | Kerala DES Ecostat (public API, no key required) |
+| Frontend Hosting | Vercel |
+| Backend Hosting | Railway |
 
 ---
 
@@ -63,7 +68,9 @@ Kerala-Commodity-Market-Intelligent-System/
 │   │   ├── urls.py
 │   │   ├── forecasting.py       # ML forecasting engine
 │   │   ├── scheduler.py         # APScheduler daily fetch
-│   │   └── management/commands/ # fetch_ecostat management command
+│   │   └── management/commands/
+│   │       ├── fetch_ecostat.py # Fetch prices from Kerala DES
+│   │       └── seed_commodities.py
 │   ├── backend/
 │   │   └── settings.py
 │   ├── requirements.txt
@@ -110,15 +117,12 @@ cd Kerala-Commodity-Market-Intelligent-System
 cd kerala-backend
 python -m pip install -r requirements.txt
 python manage.py migrate
+python manage.py seed_commodities
+python manage.py fetch_ecostat --backfill 30
 python manage.py runserver
 ```
 
 Backend runs at **http://localhost:8000**
-
-> To seed / refresh price data manually:
-> ```bash
-> python manage.py fetch_ecostat
-> ```
 
 ### 3. Frontend setup
 
@@ -150,11 +154,7 @@ Open two terminals:
 | `DEBUG` | `True` | Set `False` in production |
 | `ALLOWED_HOSTS` | `*` | Comma-separated allowed hosts |
 | `DB_ENGINE` | `sqlite` | `sqlite` or `postgresql` |
-| `DB_NAME` | `kerala_prices_db` | PostgreSQL database name |
-| `DB_USER` | `kerala_user` | PostgreSQL user |
-| `DB_PASSWORD` | — | PostgreSQL password |
-| `DB_HOST` | `localhost` | PostgreSQL host |
-| `DATABASE_URL` | — | Full DB URL (overrides above) |
+| `DATABASE_URL` | — | Full PostgreSQL URL (overrides DB_ENGINE) |
 | `ECOSTAT_SUBSET_ID` | `416` | Kerala DES dataset ID |
 
 ### Frontend — `kerala-price-platform/.env.local`
@@ -167,7 +167,7 @@ Open two terminals:
 
 ## API Reference
 
-Base URL: `http://localhost:8000/api/`
+Base URL: `https://kerala-commodity-market-intelligent-system-production.up.railway.app/api/`
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -189,31 +189,34 @@ Base URL: `http://localhost:8000/api/`
 
 ## Deployment
 
-See [DEPLOYMENT.md](../DEPLOYMENT.md) or the section below for full instructions.
+The system is deployed as a monorepo with separate services:
 
-### Frontend → Vercel (recommended, free)
+### Frontend → Vercel
 
-1. Go to [vercel.com](https://vercel.com) and import the GitHub repo
-2. Set **Root Directory** to `kerala-price-platform`
-3. Add environment variable: `NEXT_PUBLIC_API_URL=https://your-backend-url/api`
-4. Deploy — Vercel auto-deploys on every push to `main`
+- **Platform:** [vercel.com](https://vercel.com)
+- **Root Directory:** `kerala-price-platform`
+- **Auto-deploys** on every push to `main`
+- **Environment Variable:** `NEXT_PUBLIC_API_URL=https://kerala-commodity-market-intelligent-system-production.up.railway.app/api`
 
-### Backend → Railway (recommended, free tier)
+### Backend → Railway
 
-1. Go to [railway.app](https://railway.app) and create a new project
-2. Connect the GitHub repo, set **Root Directory** to `kerala-backend`
-3. Add a PostgreSQL plugin from the Railway dashboard
-4. Set environment variables: `DEBUG=False`, `SECRET_KEY=<strong-key>`, `DATABASE_URL=<from Railway>`, `ALLOWED_HOSTS=<your-railway-domain>`
-5. Set start command: `gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT`
-6. Deploy
+- **Platform:** [railway.app](https://railway.app)
+- **Root Directory:** `kerala-backend`
+- **Start Command:** `gunicorn backend.wsgi:application --bind 0.0.0.0:$PORT`
+- **Pre-deploy Command:** `python manage.py migrate`
+- **Database:** PostgreSQL (Railway plugin)
+- **Environment Variables:** `DEBUG=False`, `SECRET_KEY`, `ALLOWED_HOSTS=*`, `DATABASE_URL` (auto-injected by Railway)
 
-### Alternative backend hosts
+### Re-deploying from scratch
 
-| Platform | Free Tier | Notes |
-|---|---|---|
-| [Render](https://render.com) | ✅ Yes | Add `gunicorn` start command, PostgreSQL add-on available |
-| [Fly.io](https://fly.io) | ✅ Yes | Good for containerised Django |
-| [PythonAnywhere](https://pythonanywhere.com) | ✅ Yes | Easiest for Django beginners |
+If you need to reseed the Railway database:
+
+1. Go to Railway → **Settings** → **Deploy**
+2. Set Pre-deploy command to:
+   ```
+   python manage.py migrate && python manage.py seed_commodities && python manage.py fetch_ecostat --backfill 90
+   ```
+3. Redeploy → then reset pre-deploy back to `python manage.py migrate`
 
 ---
 
@@ -222,7 +225,7 @@ See [DEPLOYMENT.md](../DEPLOYMENT.md) or the section below for full instructions
 All price data is sourced from **Kerala Department of Economics & Statistics (DES) — Market Intelligence Dashboard**:  
 🔗 https://www.ecostat.kerala.gov.in/mi-prices-dashboard
 
-Data is fetched automatically every day at 08:00 IST. No API key is required.
+Data is fetched automatically every day at 08:00 IST via APScheduler. No API key is required.
 
 ---
 
